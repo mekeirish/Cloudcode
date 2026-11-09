@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f97316">
+<title>Cloudflare Worker Manager</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    font-family: system-ui, sans-serif;
+    max-width: 850px;
+    margin: 25px auto;
+    padding: 0 15px 40px;
+    background: #f9fafb;
+    color: #111827;
+}
+
+h2 { margin-bottom: 5px; }
+h3 { margin-top: 0; }
+
+.subtitle {
+    color: #6b7280;
+    font-size: 13px;
+    margin-bottom: 22px;
+}
+
+.box {
+    background: white;
+    padding: 18px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 5px rgba(0,0,0,.04);
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: 650;
+    margin-bottom: 5px;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 11px;
+    margin-bottom: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+    color: #111827;
+}
+
+textarea {
+    height: 420px;
+    resize: vertical;
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    tab-size: 2;
+}
+
+button {
+    border: 0;
+    background: #f97316;
+    color: white;
+    padding: 11px 15px;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+button:hover { background: #ea580c; }
+
+button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.secondary {
+    background: #e5e7eb;
+    color: #374151;
+}
+.secondary:hover { background: #d1d5db; }
+
+.danger { background: #dc2626; }
+.danger:hover { background: #b91c1c; }
+
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.row button { flex: 0 0 auto; }
+
+.checkrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.checkrow input {
+    width: auto;
+    margin: 0;
+}
+
+#status {
+    display: none;
+    padding: 13px;
+    border-radius: 7px;
+    font-size: 13px;
+    margin-bottom: 15px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.success {
+    display: block !important;
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.error {
+    display: block !important;
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.info {
+    display: block !important;
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.warning {
+    display: block !important;
+    background: #fef3c7;
+    color: #92400e;
+}
+
+#editorBox { display: none; }
+
+#workerInfo {
+    padding: 10px;
+    background: #f3f4f6;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-bottom: 15px;
+    overflow-wrap: anywhere;
+}
+
+#editorToolbar { margin-bottom: 8px; }
+
+.muted {
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.footer {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 11px;
+    margin-top: 25px;
+}
+
+/* GUIDE MODAL */
+
+#guideModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.68);
+    z-index: 9999;
+    padding: 18px;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.guide-content {
+    background: white;
+    color: #111827;
+    width: 100%;
+    max-width: 460px;
+    padding: 22px;
+    border-radius: 13px;
+    max-height: 88vh;
+    overflow-y: auto;
+    box-shadow: 0 15px 40px rgba(0,0,0,.25);
+    animation: guideAppear .2s ease;
+}
+
+@keyframes guideAppear {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.guide-step {
+    display: flex;
+    gap: 12px;
+    margin: 17px 0;
+    align-items: flex-start;
+}
+
+.step-number {
+    min-width: 27px;
+    height: 27px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff0e6;
+    color: #ea580c;
+    font-weight: bold;
+    border-radius: 50%;
+    font-size: 13px;
+}
+
+.step-text {
+    font-size: 13px;
+    line-height: 1.65;
+    flex: 1;
+}
+
+.step-text strong { color: #111827; }
+
+.guide-content a {
+    color: #ea580c;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.guide-content a:hover { text-decoration: underline; }
+
+.guide-warning {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 17px 0;
+}
+
+.permission-list {
+    background: #f3f4f6;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+.permission-list div {
+    font-size: 12px;
+    margin: 5px 0;
+}
+
+@media(max-width:500px) {
+    body { margin-top: 15px; }
+    .box { padding: 14px; }
+    textarea { height: 350px; }
+    .row button { flex: 1; }
+}
+</style>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link rel="manifest" href="./manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="./icon.png">
+<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1320x2868.png">
+<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1206x2622.png">
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1290x2796.png">
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1284x2778.png">
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1242x2688.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./splash-828x1792.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1125x2436.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1242x2208.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./splash-750x1334.png">
+<link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./splash-640x1136.png">
+</head>
+
+<body>
+
+<h2>☁️ Cloudflare Worker Manager</h2>
+
+<div class="subtitle">
+Gestion, édition et déploiement de tes Workers directement depuis ton navigateur.
+</div>
+
+<!-- 1. CONNEXION -->
+
+<div class="box">
+
+    <h3>1. Connexion Cloudflare</h3>
+
+    <label>Token API Cloudflare</label>
+
+    <input
+        type="password"
+        id="apiToken"
+        placeholder="Colle ton token API ici"
+        autocomplete="off"
+    >
+
+    <div class="checkrow">
+        <input type="checkbox" id="rememberToken">
+        <label for="rememberToken" style="margin:0">
+            Mémoriser mon token sur cet appareil
+        </label>
+    </div>
+
+    <div class="row">
+        <button id="loadWorkersBtn">
+            🔄 Connecter et détecter mes comptes
+        </button>
+
+        <button type="button" id="guideBtn" class="secondary">
+            📖 Guide
+        </button>
+    </div>
+
+    <p class="muted">
+        Permissions nécessaires : Account Read,
+        Workers Scripts Read et Workers Scripts Write.
+    </p>
+
+</div>
+
+<!-- 2. COMPTES -->
+
+<div class="box" id="accountBox" style="display:none">
+
+    <h3>2. Sélection du compte</h3>
+
+    <label>Compte Cloudflare</label>
+
+    <select id="accountSelect">
+        <option value="">Choisir un compte</option>
+    </select>
+
+    <button id="loadAccountBtn" class="secondary">
+        Charger les Workers de ce compte
+    </button>
+
+</div>
+
+<!-- 3. EDITEUR -->
+
+<div class="box" id="editorBox">
+
+    <h3>3. Gestion des Workers</h3>
+
+    <div id="workerInfo">
+        Aucun Worker sélectionné.
+    </div>
+
+    <label>Choisir un Worker</label>
+
+    <select id="workerSelect">
+        <option value="">-- Sélectionner un Worker --</option>
+    </select>
+
+    <div class="row" id="editorToolbar">
+        <label>Code source</label>
+
+        <button type="button" id="pasteBtn" class="secondary">
+            📋 Coller
+        </button>
+    </div>
+
+    <textarea
+        id="codeEditor"
+        spellcheck="false"
+        placeholder="// Sélectionne un Worker pour charger son code..."
+    ></textarea>
+
+    <div class="row">
+
+        <button id="reloadBtn" class="secondary">
+            ↻ Recharger
+        </button>
+
+        <button id="saveBtn">
+            🚀 Enregistrer et déployer
+        </button>
+
+    </div>
+
+    <p class="muted">
+        Le moteur conserve les autres fichiers du Worker
+        et réutilise ses métadonnées de déploiement.
+    </p>
+
+</div>
+
+<!-- STATUT -->
+
+<div id="status"></div>
+
+<!-- GUIDE MODAL -->
+
+<div id="guideModal" role="dialog" aria-modal="true"
+     aria-labelledby="guideTitle">
+
+    <div class="guide-content">
+
+        <div class="row">
+            <h3 id="guideTitle">🔑 Obtenir un token API</h3>
+
+            <button type="button" id="closeGuide"
+                    class="secondary"
+                    aria-label="Fermer le guide">
+                ✕
+            </button>
+        </div>
+
+        <p class="muted">
+            Suis ces 5 étapes pour connecter ton compte Cloudflare.
+        </p>
+
+        <div class="guide-step">
+            <div class="step-number">1</div>
+            <div class="step-text">
+                Connecte-toi à ton compte sur
+                <a href="https://dash.cloudflare.com/"
+                   target="_blank" rel="noopener noreferrer">
+                    Cloudflare Dashboard
+                </a>.
+            </div>
+        </div>
+
+        <div class="guide-step">
+            <div class="step-number">2</div>
+            <div class="step-text">
+                Clique sur ton profil en haut à droite,
+                puis sur <strong>My Profile</strong>.
+            </div>
+        </div>
+
+        <div class="guide-step">
+            <div class="step-number">3</div>
+            <div class="step-text">
+                Ouvre l'onglet <strong>API Tokens</strong>,
+                puis clique sur <strong>Create Token</strong>.
+            </div>
+        </div>
+
+        <div class="guide-step">
+            <div class="step-number">4</div>
+            <div class="step-text">
+                Choisis <strong>Create Custom Token</strong>
+                et configure les permissions suivantes :
+
+                <div class="permission-list">
+                    <div>✓ Account → Read</div>
+                    <div>✓ Workers Scripts → Read</div>
+                    <div>✓ Workers Scripts → Write</div>
+                </div>
+
+                Dans Account Resources, sélectionne
+                le compte Cloudflare concerné.
+            </div>
+        </div>
+
+        <div class="guide-step">
+            <div class="step-number">5</div>
+            <div class="step-text">
+                Clique sur <strong>Continue to summary</strong>,
+                puis <strong>Create Token</strong>.
+
+                Copie le token généré et colle-le
+                dans le champ de connexion de cette application.
+            </div>
+        </div>
+
+        <div class="guide-warning">
+            ⚠️ <strong>Important :</strong>
+            le token n'est affiché qu'une seule fois.
+            Copie-le immédiatement et ne le partage jamais.
+        </div>
+
+        <button id="openCloudflare" style="width:100%">
+            🌐 Créer mon token sur Cloudflare
+        </button>
+
+        <button id="closeGuide2" class="secondary"
+                style="width:100%;margin-top:9px">
+            Fermer le guide
+        </button>
+
+    </div>
+</div>
+
+<div class="footer">
+Cloudflare Worker Manager · Version améliorée
+</div>
+
+<script>
+'use strict';
+
+/* ==========================================
+   CONFIGURATION ET ÉTAT
+========================================== */
+
+const $ = id => document.getElementById(id);
+
+const API = 'https://api.cloudflare.com/client/v4';
+
+let currentAccountId = '';
+let currentWorkerName = '';
+let currentWorkerFiles = [];
+let currentWorkerMetadata = null;
+let currentWorkerMode = '';
+let isBusy = false;
+
+/* ==========================================
+   INITIALISATION DU TOKEN
+========================================== */
+
+const savedToken = sessionStorage.getItem('cf_api_token');
+const rememberedToken = localStorage.getItem('cf_api_token');
+
+if (rememberedToken) {
+    $('apiToken').value = rememberedToken;
+    $('rememberToken').checked = true;
+} else if (savedToken) {
+    $('apiToken').value = savedToken;
+}
+
+/* ==========================================
+   AFFICHAGE DES MESSAGES
+========================================== */
+
+function showStatus(message, type = 'info') {
+    const el = $('status');
+    el.className = type;
+    el.textContent = message;
+}
+
+function setBusy(value) {
+    isBusy = value;
+
+    [
+        'loadWorkersBtn',
+        'loadAccountBtn',
+        'saveBtn',
+        'reloadBtn',
+        'pasteBtn'
+    ].forEach(id => {
+        $(id).disabled = value;
+    });
+
+    $('workerSelect').disabled = value;
+    $('accountSelect').disabled = value;
+}
+
+function getToken() {
+    return $('apiToken').value.trim();
+}
+
+function getErrorMessage(data) {
+    if (data && Array.isArray(data.errors) && data.errors.length) {
+        return data.errors
+            .map(e => `[${e.code ?? '?'}] ${e.message}`)
+            .join('\n');
+    }
+
+    return data?.message || 'Erreur inconnue de Cloudflare.';
+}
+
+/* ==========================================
+   CLIENT API CLOUDFLARE
+========================================== */
+
+async function apiRequest(path, options = {}) {
+
+    const token = getToken();
+
+    if (!token) {
+        throw new Error('Token API manquant.');
+    }
+
+    const headers = new Headers(options.headers || {});
+
+    headers.set('Authorization', 'Bearer ' + token);
+
+    const response = await fetch(API + path, {
+        ...options,
+        headers
+    });
+
+    const contentType =
+        response.headers.get('content-type') || '';
+
+    let result = null;
+    let raw = '';
+
+    if (contentType.includes('application/json')) {
+        result = await response.json();
+    } else {
+        raw = await response.text();
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            result ? getErrorMessage(result) :
+            `Erreur HTTP ${response.status} : ${raw.slice(0, 400)}`
+        );
+    }
+
+    if (result && result.success === false) {
+        throw new Error(getErrorMessage(result));
+    }
+
+    return {
+        response,
+        data: result,
+        raw
+    };
+}
+
+/* ==========================================
+   CONNEXION ET DÉTECTION DES COMPTES
+========================================== */
+
+$('loadWorkersBtn').onclick = async () => {
+
+    if (isBusy) return;
+
+    const token = getToken();
+
+    if (!token) {
+        showStatus('Veuillez saisir votre token API.', 'error');
+        return;
+    }
+
+    setBusy(true);
+    showStatus('Vérification du token et recherche des comptes...', 'info');
+
+    try {
+
+        const result = await apiRequest('/accounts?per_page=100');
+
+        const accounts = result.data.result || [];
+
+        if (!accounts.length) {
+            throw new Error('Aucun compte Cloudflare associé à ce token.');
+        }
+
+        if ($('rememberToken').checked) {
+            localStorage.setItem('cf_api_token', token);
+            sessionStorage.removeItem('cf_api_token');
+        } else {
+            localStorage.removeItem('cf_api_token');
+            sessionStorage.setItem('cf_api_token', token);
+        }
+
+        const select = $('accountSelect');
+
+        select.innerHTML =
+            '<option value="">-- Choisir un compte --</option>';
+
+        accounts.forEach(account => {
+
+            const option = document.createElement('option');
+
+            option.value = account.id;
+            option.textContent =
+                `${account.name} (${account.id})`;
+
+            select.appendChild(option);
+
+        });
+
+        $('accountBox').style.display = 'block';
+
+        if (accounts.length === 1) {
+
+            select.value = accounts[0].id;
+            await loadWorkers(accounts[0].id);
+
+        } else {
+
+            $('editorBox').style.display = 'none';
+
+            showStatus(
+                `${accounts.length} comptes détectés. Sélectionne celui à utiliser.`,
+                'success'
+            );
+
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        showStatus(
+            'Connexion impossible :\n' + error.message,
+            'error'
+        );
+
+    } finally {
+        setBusy(false);
+    }
+};
+
+/* ==========================================
+   CHARGEMENT DES WORKERS
+========================================== */
+
+$('loadAccountBtn').onclick = async () => {
+
+    const accountId = $('accountSelect').value;
+
+    if (!accountId) {
+        showStatus('Sélectionne un compte.', 'error');
+        return;
+    }
+
+    await loadWorkers(accountId);
+};
+
+async function loadWorkers(accountId) {
+
+    if (isBusy) return;
+
+    setBusy(true);
+
+    showStatus('Récupération des Workers...', 'info');
+
+    try {
+
+        currentAccountId = accountId;
+
+        const result = await apiRequest(
+            `/accounts/${encodeURIComponent(accountId)}/workers/scripts?per_page=100`
+        );
+
+        const workers = result.data.result || [];
+
+        const select = $('workerSelect');
+
+        select.innerHTML =
+            '<option value="">-- Sélectionner un Worker --</option>';
+
+        workers.forEach(worker => {
+
+            const option = document.createElement('option');
+
+            option.value = worker.id;
+            option.textContent = worker.id;
+
+            select.appendChild(option);
+
+        });
+
+        $('editorBox').style.display = 'block';
+
+        $('codeEditor').value = '';
+
+        $('workerInfo').textContent =
+            `${workers.length} Worker(s) trouvés dans le compte ${accountId}.`;
+
+        currentWorkerName = '';
+        currentWorkerFiles = [];
+        currentWorkerMetadata = null;
+        currentWorkerMode = '';
+
+        showStatus(
+            `${workers.length} Worker(s) chargés avec succès.`,
+            'success'
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showStatus(
+            'Erreur de récupération :\n' + error.message,
+            'error'
+        );
+
+    } finally {
+        setBusy(false);
+    }
+}
+
+/* ==========================================
+   ANALYSE DU MULTIPART CLOUDFLARE
+========================================== */
+
+function parseMultipart(raw, contentType) {
+
+    const match = contentType.match(
+        /boundary=(?:"([^"]+)"|([^;]+))/i
+    );
+
+    if (!match) {
+        throw new Error('Frontière multipart introuvable.');
+    }
+
+    const boundary = match[1] || match[2].trim();
+
+    const sections = raw.split('--' + boundary);
+
+    const files = [];
+    let metadata = null;
+
+    for (let section of sections) {
+
+        section = section.replace(/^\r?\n/, '');
+
+        if (!section || section.startsWith('--')) continue;
+
+        const separator = section.indexOf('\r\n\r\n');
+
+        if (separator === -1) continue;
+
+        const headers = section.slice(0, separator);
+
+        let body = section.slice(separator + 4);
+
+        body = body.replace(/\r?\n$/, '');
+
+        const nameMatch = headers.match(
+            /(?:name|filename)="([^"]+)"/i
+        );
+
+        if (!nameMatch) continue;
+
+        const name = nameMatch[1];
+
+        if (name === 'metadata') {
+
+            try {
+                metadata = JSON.parse(body);
+            } catch {
+                throw new Error(
+                    'Les métadonnées du Worker sont illisibles.'
+                );
+            }
+
+        } else {
+
+            const disposition = headers.match(
+                /filename="([^"]+)"/i
+            );
+
+            const filename = disposition
+                ? disposition[1]
+                : name;
+
+            files.push({
+                name,
+                filename,
+                content: body,
+                contentType: (
+                    headers.match(/content-type:\s*([^\r\n]+)/i)?.[1]
+                    || 'application/javascript'
+                ).trim()
+            });
+
+        }
+    }
+
+    return { metadata, files };
+}
+
+/* ==========================================
+   IDENTIFICATION DU FICHIER PRINCIPAL
+========================================== */
+
+function detectWorkerMode(metadata, files, headers) {
+
+    const mainHeader = headers.get(
+        'cf-worker-main-module-part'
+    );
+
+    const bodyHeader = headers.get(
+        'cf-worker-body-part'
+    );
+
+    const mainModule =
+        metadata?.main_module || mainHeader;
+
+    const bodyPart =
+        metadata?.body_part || bodyHeader;
+
+    if (mainModule) {
+        return {
+            mode: 'module',
+            filename: mainModule
+        };
+    }
+
+    if (bodyPart) {
+        return {
+            mode: 'service',
+            filename: bodyPart
+        };
+    }
+
+    const mainFile = files.find(file =>
+        /\.(mjs|js)$/i.test(file.filename) &&
+        /\b(export\s+default|export\s+\{)/.test(file.content)
+    );
+
+    if (mainFile) {
+        return {
+            mode: 'module',
+            filename: mainFile.filename
+        };
+    }
+
+    const jsFile = files.find(file =>
+        /\.(js|mjs)$/i.test(file.filename)
+    );
+
+    if (jsFile) {
+        return {
+            mode: 'service',
+            filename: jsFile.filename
+        };
+    }
+
+    throw new Error(
+        "Impossible d'identifier le fichier principal du Worker."
+    );
+}
+
+/* ==========================================
+   CHARGEMENT DU CODE SOURCE
+========================================== */
+
+$('workerSelect').onchange = async () => {
+
+    const name = $('workerSelect').value;
+
+    if (!name || isBusy) return;
+
+    await loadWorkerSource(name);
+};
+
+$('reloadBtn').onclick = async () => {
+
+    if (!currentWorkerName) {
+        showStatus('Aucun Worker sélectionné.', 'error');
+        return;
+    }
+
+    await loadWorkerSource(currentWorkerName);
+};
+
+async function loadWorkerSource(name) {
+
+    if (isBusy) return;
+
+    setBusy(true);
+
+    showStatus(
+        'Téléchargement du code et des métadonnées...',
+        'info'
+    );
+
+    try {
+
+        const path =
+            `/accounts/${encodeURIComponent(currentAccountId)}` +
+            `/workers/scripts/${encodeURIComponent(name)}/content/v2`;
+
+        const result = await apiRequest(path);
+
+        const contentType =
+            result.response.headers.get('content-type') || '';
+
+        let parsed;
+
+        if (contentType.includes('multipart/')) {
+
+            parsed = parseMultipart(result.raw, contentType);
+
+        } else if (
+            contentType.includes('javascript') ||
+            contentType.includes('text/plain')
+        ) {
+
+            parsed = {
+                metadata: {},
+                files: [{
+                    name: 'worker.js',
+                    filename: 'worker.js',
+                    content: result.raw,
+                    contentType: 'application/javascript'
+                }]
+            };
+
+        } else {
+
+            throw new Error(
+                'Format de téléchargement non reconnu : ' +
+                contentType
+            );
+
+        }
+
+        if (!parsed.files.length) {
+            throw new Error('Aucun fichier source trouvé.');
+        }
+
+        const detected = detectWorkerMode(
+            parsed.metadata,
+            parsed.files,
+            result.response.headers
+        );
+
+        const mainFile = parsed.files.find(file =>
+            file.filename === detected.filename ||
+            file.name === detected.filename
+        );
+
+        if (!mainFile) {
+            throw new Error(
+                `Fichier principal introuvable : ${detected.filename}`
+            );
+        }
+
+        currentWorkerName = name;
+        currentWorkerFiles = parsed.files;
+        currentWorkerMetadata = parsed.metadata || {};
+        currentWorkerMode = detected.mode;
+
+        $('codeEditor').value = mainFile.content;
+
+        $('workerInfo').textContent =
+            `Worker : ${name}\n` +
+            `Type : ${detected.mode === 'module' ? 'ES Module' : 'Service Worker classique'}\n` +
+            `Fichier principal : ${detected.filename}\n` +
+            `Nombre de fichiers : ${parsed.files.length}`;
+
+        showStatus(
+            `Code chargé avec succès : ${name}`,
+            'success'
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showStatus(
+            'Erreur de chargement :\n' + error.message,
+            'error'
+        );
+
+    } finally {
+        setBusy(false);
+    }
+}
+
+/* ==========================================
+   PRESSE-PAPIER
+========================================== */
+
+$('pasteBtn').onclick = async () => {
+
+    try {
+
+        const text = await navigator.clipboard.readText();
+
+        if (!text) {
+            showStatus('Le presse-papier est vide.', 'warning');
+            return;
+        }
+
+        $('codeEditor').value = text;
+
+        showStatus('Code collé dans l’éditeur.', 'success');
+
+    } catch (error) {
+
+        showStatus(
+            'Accès au presse-papier refusé. Utilise Ctrl+V ou le collage du téléphone.',
+            'warning'
+        );
+
+    }
+};
+
+/* ==========================================
+   PRÉPARATION DU DÉPLOIEMENT
+========================================== */
+
+function buildUploadForm(code) {
+
+    const metadata = {
+        ...(currentWorkerMetadata || {})
+    };
+
+    const form = new FormData();
+
+    const isModule = currentWorkerMode === 'module';
+
+    let mainFile = currentWorkerFiles.find(file =>
+        file.filename === metadata.main_module ||
+        file.name === metadata.main_module
+    );
+
+    if (!mainFile) {
+        mainFile = currentWorkerFiles.find(file =>
+            file.filename === metadata.body_part ||
+            file.name === metadata.body_part
+        );
+    }
+
+    if (!mainFile) {
+        mainFile = currentWorkerFiles[0];
+    }
+
+    if (!mainFile) {
+        throw new Error('Fichier principal introuvable.');
+    }
+
+    if (isModule) {
+        metadata.main_module = mainFile.filename;
+        delete metadata.body_part;
+    } else {
+        metadata.body_part = mainFile.filename;
+        delete metadata.main_module;
+    }
+
+    form.append(
+        'metadata',
+        new Blob(
+            [JSON.stringify(metadata)],
+            { type: 'application/json' }
+        ),
+        'metadata.json'
+    );
+
+    for (const file of currentWorkerFiles) {
+
+        const content = file === mainFile
+            ? code
+            : file.content;
+
+        const type = file === mainFile
+            ? (
+                isModule
+                    ? 'application/javascript+module'
+                    : 'application/javascript'
+            )
+            : file.contentType;
+
+        const blob = new Blob(
+            [content],
+            { type }
+        );
+
+        form.append(
+            file.filename,
+            blob,
+            file.filename
+        );
+    }
+
+    return form;
+}
+
+/* ==========================================
+   ENREGISTRER ET DÉPLOYER
+========================================== */
+
+$('saveBtn').onclick = async () => {
+
+    if (isBusy) return;
+
+    const name = currentWorkerName;
+    const code = $('codeEditor').value;
+
+    if (!currentAccountId) {
+        showStatus('Aucun compte connecté.', 'error');
+        return;
+    }
+
+    if (!name) {
+        showStatus('Sélectionne un Worker.', 'error');
+        return;
+    }
+
+    if (!code.trim()) {
+        showStatus('Le code ne peut pas être vide.', 'error');
+        return;
+    }
+
+    const confirmed = confirm(
+        `Attention !\n\n` +
+        `Tu vas remplacer le code du Worker "${name}".\n\n` +
+        `Cette opération va créer une nouvelle version déployée.\n\n` +
+        `Continuer ?`
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    showStatus('Préparation des fichiers...', 'info');
+
+    try {
+
+        const form = buildUploadForm(code);
+
+        const path =
+            `/accounts/${encodeURIComponent(currentAccountId)}` +
+            `/workers/scripts/${encodeURIComponent(name)}/content`;
+
+        showStatus(
+            'Envoi du code à Cloudflare...\nNe ferme pas cette page.',
+            'info'
+        );
+
+        const result = await apiRequest(path, {
+            method: 'PUT',
+            body: form
+        });
+
+        const workerId =
+            result.data?.result?.id || name;
+
+        showStatus(
+            `✅ Déploiement réussi !\n\n` +
+            `Worker : ${workerId}\n` +
+            `Type : ${currentWorkerMode === 'module' ? 'ES Module' : 'Classique'}\n` +
+            `Cloudflare a accepté la nouvelle version.`,
+            'success'
+        );
+
+        $('workerInfo').textContent =
+            `Worker : ${name}\n` +
+            `Dernier déploiement : réussi\n` +
+            `Fichiers conservés : ${currentWorkerFiles.length}`;
+
+    } catch (error) {
+
+        console.error(error);
+
+        showStatus(
+            '❌ Échec du déploiement :\n' + error.message,
+            'error'
+        );
+
+    } finally {
+        setBusy(false);
+    }
+};
+
+/* ==========================================
+   MODALE GUIDE
+========================================== */
+
+function closeGuideModal() {
+    $('guideModal').style.display = 'none';
+}
+
+$('guideBtn').onclick = () => {
+    $('guideModal').style.display = 'flex';
+};
+
+$('closeGuide').onclick = closeGuideModal;
+$('closeGuide2').onclick = closeGuideModal;
+
+$('openCloudflare').onclick = () => {
+    window.open(
+        'https://dash.cloudflare.com/profile/api-tokens',
+        '_blank',
+        'noopener,noreferrer'
+    );
+};
+
+$('guideModal').onclick = event => {
+    if (event.target === $('guideModal')) {
+        closeGuideModal();
+    }
+};
+
+document.addEventListener('keydown', event => {
+    if (
+        event.key === 'Escape' &&
+        $('guideModal').style.display === 'flex'
+    ) {
+        closeGuideModal();
+    }
+});
+
+/* ==========================================
+   INITIALISATION
+========================================== */
+
+$('apiToken').addEventListener('keydown', event => {
+
+    if (event.key === 'Enter') {
+        $('loadWorkersBtn').click();
+    }
+
+});
+
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+window.addEventListener('load',()=>{
+navigator.serviceWorker.register('./sw.js').catch(err=>console.error(err));
+});
+}
+</script>
+</body>
+</html>
